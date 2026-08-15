@@ -1,32 +1,58 @@
-name: iOS Flutter CI
+name: CI — Flutter iOS
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: ["main"]
 
 jobs:
-  build_ios:
-    runs-on: macos-15
+  ios:
+    name: Build & Test iOS (simulator)
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.8'
-          channel: stable
+          flutter-version: "stable"
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
 
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
+      - name: Prepare iOS pods
+        working-directory: ios
+        run: |
+          # Ensure CocoaPods is available and update repo
+          sudo gem install cocoapods --no-document || true
+          pod repo update --silent || true
+          pod install --repo-update
 
-      - name: Install pods
-        run: cd ios && pod install --repo-update
+      - name: Build iOS for simulator (no codesign)
+        env:
+          FLUTTER_BUILD_NAME: 1.0.0
+          FLUTTER_BUILD_NUMBER: 1
+        run: |
+          # Build an iOS app for the simulator without code signing
+          flutter build ios --no-codesign --simulator
 
-      - name: Build iOS app
-        run: flutter build ios --release --no-codesign
+      - name: Run xcodebuild tests (if you want to run xcodebuild directly)
+        run: |
+          # use the ios workspace/project explicitly (Flutter workspace is ios/Runner.xcworkspace)
+          if [ -d ios/Runner.xcworkspace ]; then
+            FILETYPE=workspace
+            FILEPATH=ios/Runner.xcworkspace
+          else
+            FILETYPE=project
+            FILEPATH=ios/Runner.xcodeproj
+          fi
+
+          # pick a simulator name
+          DEVICE=$(xcrun xctrace list devices 2>&1 | grep -oE 'iPhone[^\\(]+' | head -1 | sed -e 's/ Simulator$//' | awk '{$1=$1;print}')
+          echo "Using $FILETYPE: $FILEPATH, device: $DEVICE"
+
+          # build-for-testing + test-without-building are examples; adjust scheme if needed
+          xcodebuild build-for-testing -scheme Runner -$FILETYPE "$FILEPATH" -destination "platform=iOS Simulator,name=$DEVICE" CODE_SIGNING_ALLOWED=NO
+          xcodebuild test-without-building -scheme Runner -$FILETYPE "$FILEPATH" -destination "platform=iOS Simulator,name=$DEVICE" CODE_SIGNING_ALLOWED=NO
