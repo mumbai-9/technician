@@ -1,7 +1,7 @@
 # Pest Control Technician App - iOS Podfile
 # This file defines all iOS pod (CocoaPods) dependencies
 
-platform :ios, '14.0'
+platform :ios, '15.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -47,8 +47,8 @@ post_install do |installer|
         'PERMISSION_PHOTOS=1',
       ]
 
-      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 14.0
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       end
     end
   end
