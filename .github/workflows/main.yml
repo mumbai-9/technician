@@ -8,39 +8,83 @@ on:
 
 jobs:
   build_ios:
-    runs-on: macos-15
-    defaults:
-      run:
-        working-directory: technician app
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Flutter from GitHub
+      - name: Debug repo layout
         run: |
-          git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          pwd
+          echo "Root contents:"
+          ls -la
+
+      - name: Detect Flutter app directory
+        id: detect_app
+        run: |
+          # If pubspec.yaml exists at repo root, use root. Otherwise find the first pubspec.yaml within 3 levels.
+          if [ -f pubspec.yaml ]; then
+            APP_DIR="."
+          else
+            found="$(find . -maxdepth 3 -type f -name pubspec.yaml | head -n 1 || true)"
+            if [ -z "$found" ]; then
+              echo "No pubspec.yaml found in repo (not a Flutter project?)" >&2
+              exit 1
+            fi
+            APP_DIR="$(dirname "$found")"
+          fi
+          # Normalize path (remove leading ./)
+          APP_DIR="${APP_DIR#./}"
+          echo "Detected APP_DIR='$APP_DIR'"
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+
+      - name: Install Flutter from GitHub (stable)
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
           flutter --version
           flutter precache --ios
 
-      - name: Install dependencies
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install Dart/Flutter dependencies
+        working-directory: ${{ env.APP_DIR }}
         run: flutter pub get
 
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
+        if: always()
+        working-directory: ${{ env.APP_DIR }}/ios
         run: |
-          cd ios
+          # Use quotes/safe cd semantics in case directory name has spaces
+          set -e
+          echo "Working dir: $(pwd)"
           pod repo update --silent || true
           pod install --repo-update
 
       - name: Verify iOS project exists
         run: |
-          ls -la
-          ls -la ios
-          find ios -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print
+          ios_dir="${{ env.APP_DIR }}/ios"
+          echo "Listing ios dir: '$ios_dir'"
+          if [ ! -d "$ios_dir" ]; then
+            echo "No ios/ directory at $ios_dir" >&2
+            exit 1
+          fi
+          echo "Contents:"
+          ls -la "$ios_dir"
+          echo "Xcode workspace/project files:"
+          find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
 
-      - name: Build iOS app for simulator
+      - name: Build iOS app for simulator (no codesign)
+        working-directory: ${{ env.APP_DIR }}
         run: flutter build ios --no-codesign --simulator
