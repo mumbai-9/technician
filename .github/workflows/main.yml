@@ -70,6 +70,12 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
+      - name: Clean iOS build
+        working-directory: ${{ env.APP_DIR }}/ios
+        run: |
+          rm -rf Pods Podfile.lock
+          rm -rf Flutter/Flutter.framework
+
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
         run: |
@@ -91,6 +97,8 @@ jobs:
 
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
+        env:
+          FLUTTER_ROOT: ${{ github.workspace }}/../flutter
+          PATH: ${{ github.workspace }}/../flutter/bin:${{ env.PATH }}
         run: |
-          export PATH="$HOME/flutter/bin:$PATH"
           flutter build ios --no-codesign --simulator -v
