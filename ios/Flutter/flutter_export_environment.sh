@@ -1,8 +1,8 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
 export "FLUTTER_ROOT=C:\xampp\htdocs\integrity\Marketing App\flutter"
-export "FLUTTER_APPLICATION_PATH=C:\xampp\htdocs\integrity\temp_ios_config"
-export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=C:\xampp\htdocs\integrity\temp_ios_config\ios\Flutter\ephemeral\Packages\.packages\FlutterFramework"
+export "FLUTTER_APPLICATION_PATH=C:\xampp\htdocs\integrity\technician app"
+export "FLUTTER_FRAMEWORK_SWIFT_PACKAGE_PATH=C:\xampp\htdocs\integrity\technician app\ios\Flutter\ephemeral\Packages\.packages\FlutterFramework"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib\main.dart"
 export "FLUTTER_BUILD_DIR=build"
