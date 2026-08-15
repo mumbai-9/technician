@@ -15,38 +15,39 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Debug repo layout
+        shell: pwsh
         run: |
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          pwd
-          echo "Root contents:"
-          ls -la
+          Write-Host "GITHUB_WORKSPACE=$env:GITHUB_WORKSPACE"
+          Get-Location
+          Write-Host "Root contents:"
+          Get-ChildItem -Force
 
       - name: Detect Flutter app directory
         id: detect_app
+        shell: pwsh
         run: |
-          if [ -f pubspec.yaml ]; then
-            APP_DIR="."
-          else
-            found="$(find . -maxdepth 3 -type f -name pubspec.yaml | head -n 1 || true)"
-            if [ -z "$found" ]; then
-              echo "No pubspec.yaml found in repo (not a Flutter project?)" >&2
+          if (Test-Path "pubspec.yaml") {
+            $APP_DIR = "."
+          } else {
+            $found = Get-ChildItem -Path . -Filter "pubspec.yaml" -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $found) {
+              Write-Error "No pubspec.yaml found in repo (not a Flutter project?)"
               exit 1
-            fi
-            APP_DIR="$(dirname "$found")"
-          fi
-          APP_DIR="${APP_DIR#./}"
-          echo "Detected APP_DIR='$APP_DIR'"
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+            }
+            $APP_DIR = Split-Path $found.FullName -Parent
+          }
+          $APP_DIR = $APP_DIR -replace '^\.\/', ''
+          Write-Host "Detected APP_DIR='$APP_DIR'"
+          Add-Content -Path $env:GITHUB_ENV -Value "APP_DIR=$APP_DIR"
 
       - name: Install Flutter from GitHub (stable)
+        shell: pwsh
         run: |
-          set -euxo pipefail
-          rm -rf "$HOME/flutter" || true
-          git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
-          # Make flutter available to subsequent steps
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-          # Also add flutter to PATH for this running step so we can run flutter immediately
-          export PATH="$HOME/flutter/bin:$PATH"
+          $ErrorActionPreference = "Stop"
+          if (Test-Path "$env:HOME\flutter") { Remove-Item -Recurse -Force "$env:HOME\flutter" }
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$env:HOME\flutter"
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:HOME\flutter\bin"
+          $env:PATH = "$env:HOME\flutter\bin;$env:PATH"
           flutter --version
           flutter precache --ios
 
@@ -59,37 +60,65 @@ jobs:
             ${{ runner.os }}-pub-
 
       - name: Install Dart/Flutter dependencies
-        working-directory: ${{ env.APP_DIR }}
-        run: flutter pub get
+        shell: pwsh
+        run: |
+          Set-Location $env:APP_DIR
+          flutter pub get
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods --no-document || true
+        shell: pwsh
+        run: |
+          sudo gem install cocoapods --no-document
 
       - name: Install iOS pods
-        working-directory: ${{ env.APP_DIR }}/ios
+        shell: pwsh
         run: |
-          set -e
-          echo "Working dir: $(pwd)"
-          pod repo update --silent || true
+          $ios_path = Join-Path $env:APP_DIR "ios"
+          Set-Location $ios_path
+          Write-Host "Working dir: $(Get-Location)"
+          pod repo update --silent
           pod install --repo-update
 
       - name: Verify iOS project exists
+        shell: pwsh
         run: |
-          ios_dir="${{ env.APP_DIR }}/ios"
-          echo "Listing ios dir: '$ios_dir'"
-          if [ ! -d "$ios_dir" ]; then
-            echo "No ios/ directory at $ios_dir" >&2
+          $ios_dir = Join-Path $env:APP_DIR "ios"
+          Write-Host "Listing ios dir: '$ios_dir'"
+          if (-not (Test-Path $ios_dir -PathType Container)) {
+            Write-Error "No ios/ directory at $ios_dir"
             exit 1
-          fi
-          ls -la "$ios_dir"
-          find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
+          }
+          Get-ChildItem -Path $ios_dir -Force
+          Get-ChildItem -Path $ios_dir -Recurse -MaxDepth 1 -Include "*.xcworkspace", "*.xcodeproj" -ErrorAction SilentlyContinue
+
+      - name: Debug Flutter iOS configuration
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:HOME\flutter\bin;$env:PATH"
+          Write-Host "Flutter version:"
+          flutter --version
+          Write-Host "`nFlutter precache status:"
+          flutter precache --ios --verbose
+          Write-Host "`nFlutter doctor -v:"
+          flutter doctor -v
+          Write-Host "`nChecking Flutter framework location:"
+          $flutter_framework = Join-Path $env:HOME "flutter\bin\cache\artifacts\engine\ios\Flutter.framework"
+          if (Test-Path $flutter_framework) {
+            Write-Host "Flutter framework found at: $flutter_framework"
+          } else {
+            Write-Error "Flutter framework not found at expected location"
+          }
 
       - name: Clean Flutter build cache
-        working-directory: ${{ env.APP_DIR }}
+        shell: pwsh
         run: |
+          Set-Location $env:APP_DIR
           flutter clean
           flutter pub get
 
       - name: Build iOS app for simulator (no codesign)
-        working-directory: ${{ env.APP_DIR }}
-        run: flutter build ios --no-codesign --simulator
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:HOME\flutter\bin;$env:PATH"
+          Set-Location $env:APP_DIR
+          flutter build ios --no-codesign --simulator -v
