@@ -41,8 +41,8 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  # Let Flutter's helper perform its standard post-install adjustments first.
-  flutter_post_install(installer)
+  flutter_post_install(installer) if respond_to?(:flutter_post_install)
+end
 
   # Then apply any additional custom build settings.
   installer.pods_project.targets.each do |target|
