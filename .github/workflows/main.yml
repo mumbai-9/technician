@@ -92,12 +92,13 @@ jobs:
     flutter precache --ios
     cd ios && pod deintegrate && pod install --repo-update && cd ..
 
-- name: Build iOS app for simulator (no codesign)
+    name: Build iOS app for simulator (no codesign)
   working-directory: ${{ env.APP_DIR }}
   env:
     DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
   run: |
-    flutter build ios \
+  flutter build ios \
       --no-codesign \
       --simulator \
       -v
+
