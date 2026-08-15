@@ -10,7 +10,7 @@ jobs:
   build_ios:
     runs-on: macos-latest
     env:
-      FLUTTER_ROOT: ${{ runner.home }}/flutter
+      FLUTTER_ROOT: ${{ github.workspace }}/../flutter
 
     steps:
       - name: Checkout repository
@@ -92,5 +92,5 @@ jobs:
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
         run: |
-          export PATH="${FLUTTER_ROOT}/bin:$PATH"
+          export PATH="$HOME/flutter/bin:$PATH"
           flutter build ios --no-codesign --simulator -v
