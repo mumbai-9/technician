@@ -1,0 +1,39 @@
+name: pest_control_app
+description: A professional pest control technician application
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  google_fonts: ^6.1.0
+  intl: ^0.19.0
+  url_launcher: ^6.2.2
+  qr_flutter: ^4.1.0
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  pdf: ^3.10.7
+  printing: ^5.12.0
+  path_provider: ^2.1.1
+  image_picker: ^1.0.7
+  permission_handler: ^11.2.0
+  signature: ^5.4.0
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  table_calendar: ^3.0.9
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/icon/
