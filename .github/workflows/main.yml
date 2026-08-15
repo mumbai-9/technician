@@ -84,6 +84,12 @@ jobs:
           ls -la "$ios_dir"
           find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
 
+      - name: Clean Flutter build cache
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          flutter clean
+          flutter pub get
+
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
         run: flutter build ios --no-codesign --simulator
