@@ -5,91 +5,92 @@ on:
   push:
     branches:
       - main
+      - master
+    paths:
+      - 'technician app/**'
+      - '.github/workflows/ios-build.yml'
 
 jobs:
   build_ios:
-    runs-on: macos-latest
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: technician app
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug repo layout
-        run: |
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          pwd
-          echo "Root contents:"
-          ls -la
-
-      - name: Detect Flutter app directory
-        id: detect_app
-        run: |
-          if [ -f pubspec.yaml ]; then
-            APP_DIR="."
-          else
-            found="$(find . -maxdepth 3 -type f -name pubspec.yaml | head -n 1 || true)"
-            if [ -z "$found" ]; then
-              echo "No pubspec.yaml found in repo (not a Flutter project?)" >&2
-              exit 1
-            fi
-            APP_DIR="$(dirname "$found")"
-          fi
-          APP_DIR="${APP_DIR#./}"
-          echo "Detected APP_DIR='$APP_DIR'"
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-
-      - name: Install Flutter from GitHub (stable)
-        run: |
-          set -euxo pipefail
-          rm -rf "$HOME/flutter" || true
-          git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
-          echo "$HOME/flutter/bin" >> $GITHUB_PATH
-          export PATH="$HOME/flutter/bin:$PATH"
-          flutter --version
-          flutter precache --ios
-		  
-	  - name: Setup Flutter environment
-		run: |
-			export PATH="$HOME/flutter/bin:$PATH"
-			flutter doctor -v
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
+          flutter-version: '3.44.8'
+          channel: stable
 
-      - name: Install Dart/Flutter dependencies
-        working-directory: ${{ env.APP_DIR }}
+      - name: Check Flutter version
+        run: flutter --version
+
+      - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Setup Ruby for CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
       - name: Install CocoaPods
-        run: sudo gem install cocoapods --no-document || true
+        run: sudo gem install cocoapods
 
       - name: Install iOS pods
-        working-directory: ${{ env.APP_DIR }}/ios
+        run: cd ios && pod install --repo-update
+
+      - name: Analyze project
+        run: flutter analyze
+
+      - name: Build iOS app without codesign
+        run: flutter build ios --release --no-codesign
+
+      - name: Create keychain for signing
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -e
-          echo "Working dir: $(pwd)"
-          pod repo update --silent || true
-          pod install --repo-update
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | awk '{print $1}')
 
-      - name: Verify iOS project exists
+      - name: Import provisioning profile
+        env:
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
         run: |
-          ios_dir="${{ env.APP_DIR }}/ios"
-          echo "Listing ios dir: '$ios_dir'"
-          if [ ! -d "$ios_dir" ]; then
-            echo "No ios/ directory at $ios_dir" >&2
-            exit 1
-          fi
-          ls -la "$ios_dir"
-          find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
+          set -e
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 
+      - name: Export IPA
+        env:
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          BUNDLE_ID: ${{ secrets.BUNDLE_ID }}
+          PROFILE_NAME: ${{ secrets.PROFILE_NAME }}
+        run: |
+          set -e
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ../.github/ios/exportOptions.plist \
+            -exportPath build/ios/ipa \
+            -allowProvisioningUpdates
 
-      - name: Build iOS app for simulator (no codesign)
-        working-directory: ${{ env.APP_DIR }}
-		env:
-			export PATH="$HOME/flutter/bin:$PATH"
-        run: flutter build ios --no-codesign --simulator
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: technician-ios-ipa
+          path: technician app/build/ios/ipa/*.ipa
+          if-no-files-found: error
