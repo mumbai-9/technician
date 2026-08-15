@@ -20,7 +20,6 @@ jobs:
           pwd
           echo "Root contents:"
           ls -la
-
       - name: Detect Flutter app directory
         id: detect_app
         run: |
@@ -37,7 +36,6 @@ jobs:
           APP_DIR="${APP_DIR#./}"
           echo "Detected APP_DIR='$APP_DIR'"
           echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-
       - name: Install Flutter from GitHub (stable)
         run: |
           set -euxo pipefail
@@ -47,13 +45,11 @@ jobs:
           export PATH="$HOME/flutter/bin:$PATH"
           flutter --version
           flutter precache --ios
-
       - name: Setup Flutter environment
         run: |
           # ensure the freshly installed flutter is on PATH for this step
           export PATH="$HOME/flutter/bin:$PATH"
           flutter doctor -v
-
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
@@ -61,7 +57,6 @@ jobs:
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pub-
-
       - name: Install Dart/Flutter dependencies
         working-directory: ${{ env.APP_DIR }}
         run: flutter pub get
@@ -76,7 +71,6 @@ jobs:
           echo "Working dir: $(pwd)"
           pod repo update --silent || true
           pod install --repo-update
-
       - name: Verify iOS project exists
         run: |
           ios_dir="${{ env.APP_DIR }}/ios"
@@ -87,11 +81,9 @@ jobs:
           fi
           ls -la "$ios_dir"
           find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
-
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
-        env:
-          FLUTTER_ROOT: ${{ runner.home }}/flutter
-          PATH: ${{ runner.home }}/flutter/bin:${{ env.PATH }}
         run: |
-          flutter build ios --no-codesign --simulator
+          export FLUTTER_ROOT="${{ runner.home }}/flutter"
+          export PATH="${{ runner.home }}/flutter/bin:$PATH"
+          flutter build ios --no-codesign --simulator			
