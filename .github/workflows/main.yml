@@ -66,13 +66,12 @@ jobs:
         run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
-  working-directory: ${{ env.APP_DIR }}/ios
-  run: |
-    set -e
-    echo "Working dir: $(pwd)"
-    pod repo update --silent || true
-    pod deintegrate
-    pod install --repo-update
+        working-directory: ${{ env.APP_DIR }}/ios
+        run: |
+          set -e
+          echo "Working dir: $(pwd)"
+          pod repo update --silent || true
+          pod install --repo-update
 
       - name: Verify iOS project exists
         run: |
@@ -85,20 +84,6 @@ jobs:
           ls -la "$ios_dir"
           find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
 
-      - name: Get Flutter packages and generate iOS build files
-  working-directory: ${{ env.APP_DIR }}
-  run: |
-    flutter pub get
-    flutter precache --ios
-    cd ios && pod deintegrate && pod install --repo-update && cd ..
-
-    name: Build iOS app for simulator (no codesign)
-  working-directory: ${{ env.APP_DIR }}
-  env:
-    DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
-  run: |
-  flutter build ios \
-      --no-codesign \
-      --simulator \
-      -v
-
+      - name: Build iOS app for simulator (no codesign)
+        working-directory: ${{ env.APP_DIR }}
+        run: flutter build ios --no-codesign --simulator
