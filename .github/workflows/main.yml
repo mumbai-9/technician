@@ -90,6 +90,6 @@ jobs:
 
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
-        run: |
+        env:
           PATH: $HOME/flutter/bin:${{ env.PATH }}
-          flutter build ios --no-codesign --simulator
+        run: flutter build ios --no-codesign --simulator
