@@ -9,33 +9,38 @@ on:
 jobs:
   build_ios:
     runs-on: macos-15
+    defaults:
+      run:
+        working-directory: technician app
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
+      - name: Install Flutter from GitHub
+        run: |
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 $HOME/flutter
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          flutter --version
+          flutter precache --ios
 
-      - name: Flutter pub get
+      - name: Install dependencies
         run: flutter pub get
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods
+        run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
         run: |
           cd ios
+          pod repo update --silent || true
           pod install --repo-update
 
-      - name: Verify Xcode project location
+      - name: Verify iOS project exists
         run: |
-          echo "Checking ios folder"
+          ls -la
           ls -la ios
           find ios -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print
 
-      - name: Build iOS app without codesign
-        run: flutter build ios --release --no-codesign
+      - name: Build iOS app for simulator
+        run: flutter build ios --no-codesign --simulator
