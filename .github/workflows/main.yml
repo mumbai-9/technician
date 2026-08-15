@@ -44,14 +44,15 @@ jobs:
           rm -rf "$HOME/flutter" || true
           git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
-          export PATH="$HOME/flutter/bin:$PATH"
           flutter --version
           flutter precache --ios
-		  
-	  - name: Setup Flutter environment
-		run: |
-			export PATH="$HOME/flutter/bin:$PATH"
-			flutter doctor -v
+
+      - name: Setup Flutter environment
+        run: |
+          # ensure `flutter` is on PATH in this step (GITHUB_PATH is applied for subsequent steps,
+          # but in the same job we can export it for immediate use)
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter doctor -v
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
@@ -87,9 +88,8 @@ jobs:
           ls -la "$ios_dir"
           find "$ios_dir" -maxdepth 1 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) -print || true
 
-
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
-		env:
-			PATH: ${{ runner.home }}/flutter/bin:${{ env.PATH }}
-		run: flutter build ios --no-codesign --simulator
+        env:
+          PATH: $HOME/flutter/bin:${{ env.PATH }}
+        run: flutter build ios --no-codesign --simulator
