@@ -43,12 +43,15 @@ jobs:
           set -euxo pipefail
           rm -rf "$HOME/flutter" || true
           git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
-          # Make flutter available to subsequent steps
           echo "$HOME/flutter/bin" >> $GITHUB_PATH
-          # Also add flutter to PATH for this running step so we can run flutter immediately
           export PATH="$HOME/flutter/bin:$PATH"
           flutter --version
           flutter precache --ios
+
+      - name: Setup Flutter environment
+        run: |
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter doctor -v
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
@@ -86,4 +89,6 @@ jobs:
 
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
+        env:
+          PATH: ${{ runner.home }}/flutter/bin:${{ env.PATH }}
         run: flutter build ios --no-codesign --simulator
