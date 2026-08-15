@@ -3,7 +3,6 @@
 
 platform :ios, '15.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -26,26 +25,20 @@ def flutter_root
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
-# Require the Flutter podhelper and run the standard ios podfile setup.
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
-flutter_ios_podfile_setup
+require File.expand_path(File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper'))
+flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
 target 'Runner' do
-  # Use static frameworks to avoid dynamic-framework module resolution issues:
   use_frameworks! :linkage => :static
-  # If a pod truly requires modular headers you can enable it for that pod only.
-  # use_modular_headers!
+  use_modular_headers!
 
-  # Install all Flutter iOS pods for this target
-  flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
-  flutter_post_install(installer) if respond_to?(:flutter_post_install)
-end
-
-  # Then apply any additional custom build settings.
   installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
     target.build_configurations.each do |config|
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
         '$(inherited)',
@@ -54,7 +47,6 @@ end
         'PERMISSION_PHOTOS=1',
       ]
 
-      # Ensure minimum iOS version is at least 15.0
       if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       end
