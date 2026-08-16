@@ -77,15 +77,30 @@ jobs:
           flutter clean
           flutter pub get
 
+      - name: Reset iOS project configuration
+        working-directory: ${{ env.APP_DIR }}/ios
+        run: |
+          set -e
+          export PATH="$HOME/flutter/bin:$PATH"
+          rm -rf Pods
+          rm -rf Podfile.lock
+          rm -rf .symlinks
+          rm -rf Flutter/Flutter.podspec
+          rm -rf Flutter/Flutter.framework
+
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
+        env:
+          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
+          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
           set -e
           echo "Working dir: $(pwd)"
-          export PATH="$HOME/flutter/bin:$PATH"
+          echo "Flutter root: $FLUTTER_ROOT"
+          export PATH="$FLUTTER_ROOT/bin:$PATH"
           pod repo update --silent || true
           pod install --repo-update --verbose
 
@@ -102,6 +117,10 @@ jobs:
 
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
+        env:
+          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
+          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
-          export PATH="$HOME/flutter/bin:$PATH"
+          set -e
+          export PATH="$FLUTTER_ROOT/bin:$PATH"
           flutter build ios --no-codesign --simulator -v
