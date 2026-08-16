@@ -9,10 +9,19 @@ on:
 jobs:
   build_ios:
     runs-on: macos-latest
+    env:
+      FLUTTER_ROOT: ${{ github.workspace }}/../flutter
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Debug repo layout
+        run: |
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          pwd
+          echo "Root contents:"
+          ls -la
 
       - name: Detect Flutter app directory
         id: detect_app
@@ -20,61 +29,52 @@ jobs:
           if [ -f pubspec.yaml ]; then
             APP_DIR="."
           else
-            found="$(find . -maxdepth 4 -type f -name pubspec.yaml | head -n 1 || true)"
+            found="$(find . -maxdepth 3 -type f -name pubspec.yaml | head -n 1 || true)"
             if [ -z "$found" ]; then
-              echo "No pubspec.yaml found in repo" >&2
+              echo "No pubspec.yaml found in repo (not a Flutter project?)" >&2
               exit 1
             fi
             APP_DIR="$(dirname "$found")"
           fi
           APP_DIR="${APP_DIR#./}"
           echo "Detected APP_DIR='$APP_DIR'"
-          echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
 
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.44.8'
-          channel: stable
-
-      - name: Verify Flutter setup
-        run: flutter --version
-
-      - name: Resolve Flutter SDK path
+      - name: Install Flutter from GitHub (stable)
         run: |
-          FLUTTER_BIN="$(which flutter)"
-          FLUTTER_ROOT="$(dirname "$(dirname "$FLUTTER_BIN")")"
-          echo "Flutter binary: $FLUTTER_BIN"
-          echo "Flutter root: $FLUTTER_ROOT"
-          echo "FLUTTER_ROOT=$FLUTTER_ROOT" >> "$GITHUB_ENV"
+          set -euxo pipefail
+          rm -rf "$HOME/flutter" || true
+          git clone https://github.com/flutter/flutter.git -b stable --depth 1 "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> $GITHUB_PATH
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter --version
+          flutter precache --ios
+
+      - name: Setup Flutter environment
+        run: |
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter doctor -v
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles(format('{0}/pubspec.yaml', env.APP_DIR)) }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Install app dependencies
+      - name: Install Dart/Flutter dependencies
         working-directory: ${{ env.APP_DIR }}
-        run: |
-          flutter pub get
-          flutter precache --ios
+        run: flutter pub get
 
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
-        env:
-          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
-          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
           set -e
           echo "Working dir: $(pwd)"
-          echo "Flutter root: $FLUTTER_ROOT"
-          flutter --version
           pod repo update --silent || true
           pod install --repo-update
 
@@ -92,4 +92,5 @@ jobs:
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
         run: |
+          export PATH="$HOME/flutter/bin:$PATH"
           flutter build ios --no-codesign --simulator -v
