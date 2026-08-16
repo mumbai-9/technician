@@ -86,7 +86,7 @@ jobs:
 
       - name: Verify iOS project exists
         run: |
-          ios_dir="${{ env.APP_DIR }}/ios"
+          ios_dir="${APP_DIR}/ios"
           echo "Listing ios dir: '$ios_dir'"
           if [ ! -d "$ios_dir" ]; then
             echo "No ios/ directory at $ios_dir" >&2
