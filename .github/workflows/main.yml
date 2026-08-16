@@ -67,6 +67,16 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: flutter pub get
 
+      - name: Clean and regenerate iOS build files
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          export PATH="$HOME/flutter/bin:$PATH"
+          rm -rf ios/Pods
+          rm -rf ios/Podfile.lock
+          rm -rf build/
+          flutter clean
+          flutter pub get
+
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
@@ -75,8 +85,9 @@ jobs:
         run: |
           set -e
           echo "Working dir: $(pwd)"
+          export PATH="$HOME/flutter/bin:$PATH"
           pod repo update --silent || true
-          pod install --repo-update
+          pod install --repo-update --verbose
 
       - name: Verify iOS project exists
         run: |
