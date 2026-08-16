@@ -40,6 +40,14 @@ jobs:
       - name: Verify Flutter setup
         run: flutter --version
 
+      - name: Resolve Flutter SDK path
+        run: |
+          FLUTTER_BIN="$(which flutter)"
+          FLUTTER_ROOT="$(dirname "$(dirname "$FLUTTER_BIN")")"
+          echo "Flutter binary: $FLUTTER_BIN"
+          echo "Flutter root: $FLUTTER_ROOT"
+          echo "FLUTTER_ROOT=$FLUTTER_ROOT" >> "$GITHUB_ENV"
+
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
@@ -50,16 +58,24 @@ jobs:
 
       - name: Install app dependencies
         working-directory: ${{ env.APP_DIR }}
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter precache --ios
 
       - name: Install CocoaPods
         run: sudo gem install cocoapods --no-document || true
 
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
+        env:
+          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
+          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
           set -e
           echo "Working dir: $(pwd)"
+          echo "Flutter root: $FLUTTER_ROOT"
+          which flutter
+          flutter --version
           pod repo update --silent || true
           pod install --repo-update
 
