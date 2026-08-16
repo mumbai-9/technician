@@ -74,7 +74,7 @@ jobs:
           set -e
           echo "Working dir: $(pwd)"
           echo "Flutter root: $FLUTTER_ROOT"
-          "$FLUTTER_ROOT/bin/flutter" --version
+          flutter --version
           pod repo update --silent || true
           pod install --repo-update
 
