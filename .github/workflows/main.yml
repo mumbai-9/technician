@@ -67,7 +67,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: flutter pub get
 
-      - name: Clean and regenerate iOS build files
+      - name: Clean iOS build artifacts
         working-directory: ${{ env.APP_DIR }}
         run: |
           set -e
@@ -82,25 +82,23 @@ jobs:
           flutter pub get
           flutter precache --ios
 
-      - name: Generate iOS project with Flutter
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          set -e
-          export PATH="$HOME/flutter/bin:$PATH"
-          flutter create --platforms=ios .
-
       - name: Install CocoaPods
         run: |
           set -e
           sudo gem install cocoapods --no-document
 
+      - name: Fix iOS project configuration
+        working-directory: ${{ env.APP_DIR }}/ios
+        run: |
+          set -e
+          xcrun xcode-select --reset || true
+          find . -name "*.xcconfig" -type f -not -path "./Pods/*" -exec grep -l "FLUTTER" {} \; | head -n 1 | xargs -I {} sed -i '' 's/#include.*Flutter.*//g' {} || true
+
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
         run: |
           set -e
-          echo "Working dir: $(pwd)"
           export PATH="$HOME/flutter/bin:$PATH"
-          pod repo update --silent || true
           pod install --repo-update
 
       - name: Verify iOS project exists
