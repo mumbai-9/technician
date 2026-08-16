@@ -70,38 +70,38 @@ jobs:
       - name: Clean and regenerate iOS build files
         working-directory: ${{ env.APP_DIR }}
         run: |
+          set -e
           export PATH="$HOME/flutter/bin:$PATH"
           rm -rf ios/Pods
           rm -rf ios/Podfile.lock
+          rm -rf ios/.symlinks
+          rm -rf ios/Flutter/Flutter.podspec
+          rm -rf ios/Flutter/Flutter.framework
           rm -rf build/
           flutter clean
           flutter pub get
+          flutter precache --ios
 
-      - name: Reset iOS project configuration
-        working-directory: ${{ env.APP_DIR }}/ios
+      - name: Generate iOS project with Flutter
+        working-directory: ${{ env.APP_DIR }}
         run: |
           set -e
           export PATH="$HOME/flutter/bin:$PATH"
-          rm -rf Pods
-          rm -rf Podfile.lock
-          rm -rf .symlinks
-          rm -rf Flutter/Flutter.podspec
-          rm -rf Flutter/Flutter.framework
+          flutter create --platforms=ios .
 
       - name: Install CocoaPods
         run: |
           set -e
           sudo gem install cocoapods --no-document
-          which pod
 
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
         run: |
           set -e
           echo "Working dir: $(pwd)"
-          which pod
+          export PATH="$HOME/flutter/bin:$PATH"
           pod repo update --silent || true
-          pod install --repo-update --verbose
+          pod install --repo-update
 
       - name: Verify iOS project exists
         run: |
