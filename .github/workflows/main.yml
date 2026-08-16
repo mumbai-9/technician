@@ -89,18 +89,17 @@ jobs:
           rm -rf Flutter/Flutter.framework
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods --no-document || true
+        run: |
+          set -e
+          sudo gem install cocoapods --no-document
+          which pod
 
       - name: Install iOS pods
         working-directory: ${{ env.APP_DIR }}/ios
-        env:
-          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
-          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
           set -e
           echo "Working dir: $(pwd)"
-          echo "Flutter root: $FLUTTER_ROOT"
-          export PATH="$FLUTTER_ROOT/bin:$PATH"
+          which pod
           pod repo update --silent || true
           pod install --repo-update --verbose
 
@@ -117,10 +116,7 @@ jobs:
 
       - name: Build iOS app for simulator (no codesign)
         working-directory: ${{ env.APP_DIR }}
-        env:
-          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
-          PATH: ${{ env.FLUTTER_ROOT }}/bin:${{ env.PATH }}
         run: |
           set -e
-          export PATH="$FLUTTER_ROOT/bin:$PATH"
+          export PATH="$HOME/flutter/bin:$PATH"
           flutter build ios --no-codesign --simulator -v
